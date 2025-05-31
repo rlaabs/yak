@@ -60,7 +60,7 @@ class AnthropicProvider(LLMProvider):
         )
         return None
     
-    async def generate(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None) -> str:
+    async def generate(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None, **kwargs) -> str:
         """Generate response using Anthropic API."""
         try:
             # Separate system message from conversation
@@ -73,20 +73,22 @@ class AnthropicProvider(LLMProvider):
                 else:
                     conversation.append(msg)
             
-            kwargs = {
+            # Combine default generation kwargs with any additional kwargs
+            generation_kwargs = {
                 "model": self.model_name,
                 "messages": conversation,
                 "max_tokens": self.generation_kwargs.get("max_tokens", 1000),
-                **{k: v for k, v in self.generation_kwargs.items() if k != "max_tokens"}
+                **{k: v for k, v in self.generation_kwargs.items() if k != "max_tokens"},
+                **kwargs
             }
             
             if system_message:
-                kwargs["system"] = system_message
+                generation_kwargs["system"] = system_message
             
             if tools:
-                kwargs["tools"] = tools
+                generation_kwargs["tools"] = tools
             
-            response = await self.client.messages.create(**kwargs)
+            response = await self.client.messages.create(**generation_kwargs)
             
             # Handle tool use
             content = ""
@@ -102,7 +104,7 @@ class AnthropicProvider(LLMProvider):
             logger.error(f"Anthropic API error: {e}")
             return f"Error: {str(e)}"
     
-    def generate_sync(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None) -> str:
+    def generate_sync(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None, **kwargs) -> str:
         """Synchronous generation for compatibility."""
         try:
             # Separate system message from conversation
@@ -115,20 +117,22 @@ class AnthropicProvider(LLMProvider):
                 else:
                     conversation.append(msg)
             
-            kwargs = {
+            # Combine default generation kwargs with any additional kwargs
+            generation_kwargs = {
                 "model": self.model_name,
                 "messages": conversation,
                 "max_tokens": self.generation_kwargs.get("max_tokens", 1000),
-                **{k: v for k, v in self.generation_kwargs.items() if k != "max_tokens"}
+                **{k: v for k, v in self.generation_kwargs.items() if k != "max_tokens"},
+                **kwargs
             }
             
             if system_message:
-                kwargs["system"] = system_message
+                generation_kwargs["system"] = system_message
             
             if tools:
-                kwargs["tools"] = tools
+                generation_kwargs["tools"] = tools
             
-            response = self.sync_client.messages.create(**kwargs)
+            response = self.sync_client.messages.create(**generation_kwargs)
             
             # Handle tool use
             content = ""

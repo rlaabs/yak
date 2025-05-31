@@ -44,11 +44,11 @@ class LocalModelProvider(LLMProvider):
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
     
-    async def generate(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None) -> str:
+    async def generate(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None, **kwargs) -> str:
         """Generate response using local model."""
-        return self.generate_sync(messages, tools)
+        return self.generate_sync(messages, tools, **kwargs)
     
-    def generate_sync(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None) -> str:
+    def generate_sync(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None, **kwargs) -> str:
         """Generate response using local model."""
         try:
             # Build prompt from messages
@@ -59,16 +59,19 @@ class LocalModelProvider(LLMProvider):
             if torch.cuda.is_available():
                 inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
             
+            # Combine default generation kwargs with any additional kwargs
+            combined_kwargs = {**self.generation_kwargs, **kwargs}
+            
             # Generate
             with torch.no_grad():
                 outputs = self.model.generate(
                     **inputs,
-                    max_new_tokens=self.generation_kwargs.get("max_new_tokens", 512),
-                    do_sample=self.generation_kwargs.get("do_sample", True),
-                    temperature=self.generation_kwargs.get("temperature", 0.7),
+                    max_new_tokens=combined_kwargs.get("max_new_tokens", 512),
+                    do_sample=combined_kwargs.get("do_sample", True),
+                    temperature=combined_kwargs.get("temperature", 0.7),
                     pad_token_id=self.tokenizer.eos_token_id,
-                    **{k: v for k, v in self.generation_kwargs.items() 
-                       if k not in ["max_new_tokens", "do_sample", "temperature"]}
+                    **{k: v for k, v in combined_kwargs.items() 
+                       if k not in ["max_new_tokens", "do_sample", "temperature", "response_format"]}
                 )
             
             # Decode response

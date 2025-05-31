@@ -10,8 +10,15 @@ class LLMProvider(ABC):
     """Abstract base class for LLM providers."""
     
     @abstractmethod
-    async def generate(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None) -> Union[str, Dict[str, Any]]:
-        """Generate a response from the LLM. May return string or structured response."""
+    async def generate(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None, **kwargs) -> Union[str, Dict[str, Any]]:
+        """
+        Generate a response from the LLM. May return string or structured response.
+        
+        Args:
+            messages: List of message dictionaries with 'role' and 'content' keys
+            tools: Optional list of tool schemas
+            **kwargs: Additional provider-specific generation parameters
+        """
         pass
     
     @abstractmethod

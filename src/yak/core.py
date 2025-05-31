@@ -3,10 +3,11 @@ import re
 import asyncio
 import logging
 import inspect
-from typing import List, Optional, Dict, Any, Union, Tuple, get_origin, get_args, Callable
+from typing import List, Optional, Dict, Any, Union, Tuple, get_origin, get_args, Callable, Type
 from pathlib import Path
 
 from .providers import LLMProvider
+from .utils import pydantic_model_to_json_schema
 from .providers.openai import OpenAIProvider
 from .providers.anthropic import AnthropicProvider
 from .providers.openrouter import OpenRouterProvider
@@ -250,11 +251,19 @@ class Yak:
             schemas.append(schema)
         return schemas
     
-    async def chat_async(self, user_input: str, max_rounds: int = 3) -> str:
+    async def chat_async(self, user_input: str, max_rounds: int = 3, response_format: Optional[Type] = None) -> str:
         """
         Async version of chat method.
         Continue the conversation by adding the user_input to history,
         generating a reply, and running any tool calls.
+        
+        Args:
+            user_input: The user's message to process
+            max_rounds: Maximum number of LLM response/tool calling rounds to perform
+            response_format: Optional Pydantic model class to specify the response format
+        
+        Returns:
+            The LLM's response
         """
         # Append user message to both histories
         user_msg = {"role": "user", "content": user_input}
@@ -270,8 +279,27 @@ class Yak:
                 format_type = "anthropic" if isinstance(self.provider, AnthropicProvider) else "openai"
                 tools = self.get_tool_schemas(format_type=format_type)
             
+            # Convert response_format to appropriate JSON schema if provided
+            generation_kwargs = {}
+            if response_format:
+                try:
+                    if isinstance(self.provider, OpenAIProvider):
+                        # OpenAI only supports {"type": "json_object"}
+                        response_format_schema = pydantic_model_to_json_schema(response_format, provider_type="openai")
+                        generation_kwargs["response_format"] = response_format_schema
+                        logger.info(f"Using response format schema for OpenAI: {response_format_schema}")
+                    elif isinstance(self.provider, OpenRouterProvider):
+                        # OpenRouter supports full JSON schema
+                        response_format_schema = pydantic_model_to_json_schema(response_format, provider_type="openrouter")
+                        generation_kwargs["response_format"] = response_format_schema
+                        logger.info(f"Using response format schema for OpenRouter: {response_format_schema}")
+                except ImportError as e:
+                    logger.warning(f"Could not use response_format: {e}")
+                except ValueError as e:
+                    logger.warning(f"Invalid response_format: {e}")
+            
             # Generate response
-            reply = await self.provider.generate(self.llm_history, tools)
+            reply = await self.provider.generate(self.llm_history, tools, **generation_kwargs)
             
             # Append assistant reply to both histories
             assistant_msg = {"role": "assistant", "content": reply}
@@ -336,11 +364,19 @@ class Yak:
         # Return the last assistant message
         return self.history[-1]["content"]
     
-    def chat(self, user_input: str, max_rounds: int = 3) -> str:
+    def chat(self, user_input: str, max_rounds: int = 3, response_format: Optional[Type] = None) -> str:
         """
         Synchronous chat method.
         Continue the conversation by adding the user_input to history,
         generating a reply, and running any tool calls.
+        
+        Args:
+            user_input: The user's message to process
+            max_rounds: Maximum number of LLM response/tool calling rounds to perform
+            response_format: Optional Pydantic model class to specify the response format
+        
+        Returns:
+            The LLM's response
         """
         # Append user message to both histories
         user_msg = {"role": "user", "content": user_input}
@@ -356,12 +392,31 @@ class Yak:
                 format_type = "anthropic" if isinstance(self.provider, AnthropicProvider) else "openai"
                 tools = self.get_tool_schemas(format_type=format_type)
             
+            # Convert response_format to appropriate JSON schema if provided
+            generation_kwargs = {}
+            if response_format:
+                try:
+                    if isinstance(self.provider, OpenAIProvider):
+                        # OpenAI only supports {"type": "json_object"}
+                        response_format_schema = pydantic_model_to_json_schema(response_format, provider_type="openai")
+                        generation_kwargs["response_format"] = response_format_schema
+                        logger.info(f"Using response format schema for OpenAI: {response_format_schema}")
+                    elif isinstance(self.provider, OpenRouterProvider):
+                        # OpenRouter supports full JSON schema
+                        response_format_schema = pydantic_model_to_json_schema(response_format, provider_type="openrouter")
+                        generation_kwargs["response_format"] = response_format_schema
+                        logger.info(f"Using response format schema for OpenRouter: {response_format_schema}")
+                except ImportError as e:
+                    logger.warning(f"Could not use response_format: {e}")
+                except ValueError as e:
+                    logger.warning(f"Invalid response_format: {e}")
+            
             # Generate response (use sync method)
             if hasattr(self.provider, 'generate_sync'):
-                reply = self.provider.generate_sync(self.llm_history, tools)
+                reply = self.provider.generate_sync(self.llm_history, tools, **generation_kwargs)
             else:
                 # Fallback to async in sync context
-                reply = asyncio.run(self.provider.generate(self.llm_history, tools))
+                reply = asyncio.run(self.provider.generate(self.llm_history, tools, **generation_kwargs))
             
             # Append assistant reply to both histories
             assistant_msg = {"role": "assistant", "content": reply}

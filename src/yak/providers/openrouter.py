@@ -10,6 +10,14 @@ from .base import LLMProvider
 from ..utils import extract_tool_calls
 import requests
 
+# Import httpx for direct API calls
+try:
+    import httpx
+    HAS_HTTPX = True
+except ImportError:
+    HAS_HTTPX = False
+    httpx = None
+
 logger = logging.getLogger(__name__)
 
 # Import with fallback
@@ -68,21 +76,96 @@ class OpenRouterProvider(LLMProvider):
         )
         return None
     
-    async def generate(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None) -> str:
-        """Generate response using OpenRouter API."""
+    async def _direct_api_call(self, messages: List[Dict[str, str]], schema: Dict[str, Any]) -> str:
+        """Make a direct API call to OpenRouter with json_schema support."""
+        if not HAS_HTTPX:
+            raise ImportError("httpx package is required for JSON schema support with OpenRouter. Install with: pip install httpx")
+        
         try:
-            kwargs = {
+            # Create the request payload
+            payload = {
                 "model": self.model_name,
                 "messages": messages,
-                **self.generation_kwargs
+                # Simplified json response format for OpenRouter
+                "response_format": {"type": "json_object"}
             }
+            
+            # Add instruction to return JSON in the format specified
+            # Modify the last user message to include JSON format instructions
+            if messages and messages[-1]["role"] == "user":
+                original_content = messages[-1]["content"]
+                schema_str = json.dumps(schema, indent=2)
+                if "json" not in original_content.lower():
+                    messages[-1]["content"] = (
+                        f"{original_content}\n\n"
+                        f"Please respond with JSON that follows this schema:\n"
+                        f"```json\n{schema_str}\n```\n"
+                        f"Ensure your response is valid JSON that matches this schema exactly."
+                    )
+            
+            logger.info(f"OpenRouter direct API call payload: {json.dumps(payload, indent=2)}")
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                    timeout=60.0
+                )
+                
+                response.raise_for_status()
+                data = response.json()
+                logger.info(f"OpenRouter response: {json.dumps(data, indent=2)}")
+                return data["choices"][0]["message"]["content"]
+                
+        except Exception as e:
+            logger.error(f"OpenRouter direct API call error: {e}")
+            return f"Error with direct API call: {str(e)}"
+    
+    async def generate(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None, **kwargs) -> str:
+        """Generate response using OpenRouter API."""
+        try:
+            # Check if we need to use the direct API fallback for response_format with schema
+            if "response_format" in kwargs and isinstance(kwargs["response_format"], dict):
+                # Check for schema directly or in json_schema field
+                if "schema" in kwargs["response_format"]:
+                    logger.info("Using direct API fallback for OpenRouter with JSON schema")
+                    return await self._direct_api_call(messages, kwargs["response_format"]["schema"])
+                elif "json_schema" in kwargs["response_format"] and "schema" in kwargs["response_format"]["json_schema"]:
+                    logger.info("Using direct API fallback for OpenRouter with JSON schema (from json_schema field)")
+                    return await self._direct_api_call(messages, kwargs["response_format"]["json_schema"]["schema"])
+            
+            # Combine default generation kwargs with any additional kwargs
+            generation_kwargs = {
+                "model": self.model_name,
+                "messages": messages,
+                **self.generation_kwargs,
+                **kwargs
+            }
+            
+            # For regular response_format without schema, convert to simple json_object
+            if "response_format" in generation_kwargs:
+                logger.warning("Adjusting response_format for OpenRouter compatibility. Using simple JSON format.")
+                
+                # Tell the model to return JSON in the last message
+                # Add JSON instruction to the last user message
+                if messages and messages[-1]["role"] == "user":
+                    original_content = messages[-1]["content"]
+                    if "json" not in original_content.lower():
+                        messages[-1]["content"] = original_content + "\n\nPlease format your response as JSON."
+                
+                # Use simpler response_format with just the type
+                generation_kwargs["response_format"] = {"type": "json_object"}
             
             # Note: Tool calling support varies by model on OpenRouter
             if tools and self._supports_tools():
-                kwargs["tools"] = tools
-                kwargs["tool_choice"] = "auto"
+                generation_kwargs["tools"] = tools
+                generation_kwargs["tool_choice"] = "auto"
             
-            response = await self.client.chat.completions.create(**kwargs)
+            response = await self.client.chat.completions.create(**generation_kwargs)
             self._last_response = response
             
             # Handle tool calls
@@ -104,20 +187,95 @@ class OpenRouterProvider(LLMProvider):
             logger.error(f"OpenRouter API error: {e}")
             return f"Error: {str(e)}"
     
-    def generate_sync(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None) -> str:
-        """Synchronous generation for compatibility."""
+    def _direct_api_call_sync(self, messages: List[Dict[str, str]], schema: Dict[str, Any]) -> str:
+        """Make a direct synchronous API call to OpenRouter with json_schema support."""
+        if not HAS_HTTPX:
+            raise ImportError("httpx package is required for JSON schema support with OpenRouter. Install with: pip install httpx")
+        
         try:
-            kwargs = {
+            # Create the request payload
+            payload = {
                 "model": self.model_name,
                 "messages": messages,
-                **self.generation_kwargs
+                # Simplified json response format for OpenRouter
+                "response_format": {"type": "json_object"}
             }
             
-            if tools and self._supports_tools():
-                kwargs["tools"] = tools
-                kwargs["tool_choice"] = "auto"
+            # Add instruction to return JSON in the format specified
+            # Modify the last user message to include JSON format instructions
+            if messages and messages[-1]["role"] == "user":
+                original_content = messages[-1]["content"]
+                schema_str = json.dumps(schema, indent=2)
+                if "json" not in original_content.lower():
+                    messages[-1]["content"] = (
+                        f"{original_content}\n\n"
+                        f"Please respond with JSON that follows this schema:\n"
+                        f"```json\n{schema_str}\n```\n"
+                        f"Ensure your response is valid JSON that matches this schema exactly."
+                    )
             
-            response = self.sync_client.chat.completions.create(**kwargs)
+            logger.info(f"OpenRouter direct API call payload (sync): {json.dumps(payload, indent=2)}")
+            
+            with httpx.Client() as client:
+                response = client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                    timeout=60.0
+                )
+                
+                response.raise_for_status()
+                data = response.json()
+                logger.info(f"OpenRouter response (sync): {json.dumps(data, indent=2)}")
+                return data["choices"][0]["message"]["content"]
+                
+        except Exception as e:
+            logger.error(f"OpenRouter direct API call error: {e}")
+            return f"Error with direct API call: {str(e)}"
+
+    def generate_sync(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None, **kwargs) -> str:
+        """Synchronous generation for compatibility."""
+        try:
+            # Check if we need to use the direct API fallback for response_format with schema
+            if "response_format" in kwargs and isinstance(kwargs["response_format"], dict):
+                # Check for schema directly or in json_schema field
+                if "schema" in kwargs["response_format"]:
+                    logger.info("Using direct API fallback for OpenRouter with JSON schema (sync)")
+                    return self._direct_api_call_sync(messages, kwargs["response_format"]["schema"])
+                elif "json_schema" in kwargs["response_format"] and "schema" in kwargs["response_format"]["json_schema"]:
+                    logger.info("Using direct API fallback for OpenRouter with JSON schema (from json_schema field, sync)")
+                    return self._direct_api_call_sync(messages, kwargs["response_format"]["json_schema"]["schema"])
+            
+            # Combine default generation kwargs with any additional kwargs
+            generation_kwargs = {
+                "model": self.model_name,
+                "messages": messages,
+                **self.generation_kwargs,
+                **kwargs
+            }
+            
+            # For regular response_format without schema, convert to simple json_object
+            if "response_format" in generation_kwargs:
+                logger.warning("Adjusting response_format for OpenRouter compatibility. Using simple JSON format.")
+                
+                # Tell the model to return JSON in the last message
+                # Add JSON instruction to the last user message
+                if messages and messages[-1]["role"] == "user":
+                    original_content = messages[-1]["content"]
+                    if "json" not in original_content.lower():
+                        messages[-1]["content"] = original_content + "\n\nPlease format your response as JSON."
+                
+                # Use simpler response_format with just the type
+                generation_kwargs["response_format"] = {"type": "json_object"}
+            
+            if tools and self._supports_tools():
+                generation_kwargs["tools"] = tools
+                generation_kwargs["tool_choice"] = "auto"
+            
+            response = self.sync_client.chat.completions.create(**generation_kwargs)
             self._last_response = response
             
             # Handle tool calls

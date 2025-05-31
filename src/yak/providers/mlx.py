@@ -39,25 +39,28 @@ class MLXProvider(LLMProvider):
             logger.error(f"Failed to load MLX model: {e}")
             raise
     
-    async def generate(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None) -> str:
+    async def generate(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None, **kwargs) -> str:
         """Generate response using MLX model."""
-        return self.generate_sync(messages, tools)
+        return self.generate_sync(messages, tools, **kwargs)
     
-    def generate_sync(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None) -> str:
+    def generate_sync(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None, **kwargs) -> str:
         """Generate response using MLX model."""
         try:
             # Build prompt from messages
             prompt = self._build_prompt(messages, tools)
+            
+            # Combine default generation kwargs with any additional kwargs
+            combined_kwargs = {**self.generation_kwargs, **kwargs}
             
             # Generate with MLX
             response = generate(
                 model=self.model,
                 tokenizer=self.tokenizer,
                 prompt=prompt,
-                max_tokens=self.generation_kwargs.get("max_tokens", 512),
-                temp=self.generation_kwargs.get("temperature", 0.7),
-                top_p=self.generation_kwargs.get("top_p", 0.9),
-                verbose=self.generation_kwargs.get("verbose", False)
+                max_tokens=combined_kwargs.get("max_tokens", 512),
+                temp=combined_kwargs.get("temperature", 0.7),
+                top_p=combined_kwargs.get("top_p", 0.9),
+                verbose=combined_kwargs.get("verbose", False)
             )
             
             return response

@@ -59,20 +59,22 @@ class OpenAIProvider(LLMProvider):
         )
         return None
     
-    async def generate(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None) -> str:
+    async def generate(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None, **kwargs) -> str:
         """Generate response using OpenAI API."""
         try:
-            kwargs = {
+            # Combine default generation kwargs with any additional kwargs
+            generation_kwargs = {
                 "model": self.model_name,
                 "messages": messages,
-                **self.generation_kwargs
+                **self.generation_kwargs,
+                **kwargs
             }
             
             if tools:
-                kwargs["tools"] = tools
-                kwargs["tool_choice"] = "auto"
+                generation_kwargs["tools"] = tools
+                generation_kwargs["tool_choice"] = "auto"
             
-            response = await self.client.chat.completions.create(**kwargs)
+            response = await self.client.chat.completions.create(**generation_kwargs)
             
             # Handle tool calls
             message = response.choices[0].message
@@ -93,20 +95,22 @@ class OpenAIProvider(LLMProvider):
             logger.error(f"OpenAI API error: {e}")
             return f"Error: {str(e)}"
     
-    def generate_sync(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None) -> str:
+    def generate_sync(self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None, **kwargs) -> str:
         """Synchronous generation for compatibility."""
         try:
-            kwargs = {
+            # Combine default generation kwargs with any additional kwargs
+            generation_kwargs = {
                 "model": self.model_name,
                 "messages": messages,
-                **self.generation_kwargs
+                **self.generation_kwargs,
+                **kwargs
             }
             
             if tools:
-                kwargs["tools"] = tools
-                kwargs["tool_choice"] = "auto"
+                generation_kwargs["tools"] = tools
+                generation_kwargs["tool_choice"] = "auto"
             
-            response = self.sync_client.chat.completions.create(**kwargs)
+            response = self.sync_client.chat.completions.create(**generation_kwargs)
             
             # Handle tool calls
             message = response.choices[0].message
