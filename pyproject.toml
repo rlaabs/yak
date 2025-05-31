@@ -12,8 +12,12 @@ dependencies = [
     "ipywidgets>=8.1.7",
     "mlx-lm>=0.24.1",
     "openai>=1.82.1",
+    "sentencepiece",
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.uv.sources]
+sentencepiece = { url = "https://github.com/rlaabs/sentencepiece/releases/download/0.2.1/sentencepiece-0.2.1-cp313-cp313-macosx_11_0_arm64.whl" }
