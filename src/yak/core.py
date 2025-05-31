@@ -273,11 +273,17 @@ class Yak:
         for round_num in range(max_rounds):
             logger.info(f"Chat round {round_num + 1}/{max_rounds}")
             
-            # Get tool schemas for the provider
+            # Get tools for the provider
             tools = None
             if self.tools:
-                format_type = "anthropic" if isinstance(self.provider, AnthropicProvider) else "openai"
-                tools = self.get_tool_schemas(format_type=format_type)
+                # For MLX provider, pass the actual function objects
+                if isinstance(self.provider, MLXProvider):
+                    tools = list(self.tools.values())
+                    logger.info(f"Using raw function objects for MLX provider: {[t.__name__ for t in tools]}")
+                else:
+                    # For other providers, convert to appropriate schema format
+                    format_type = "anthropic" if isinstance(self.provider, AnthropicProvider) else "openai"
+                    tools = self.get_tool_schemas(format_type=format_type)
             
             # Convert response_format to appropriate JSON schema if provided
             generation_kwargs = {}
@@ -386,11 +392,17 @@ class Yak:
         for round_num in range(max_rounds):
             logger.info(f"Chat round {round_num + 1}/{max_rounds}")
             
-            # Get tool schemas for the provider
+            # Get tools for the provider
             tools = None
             if self.tools:
-                format_type = "anthropic" if isinstance(self.provider, AnthropicProvider) else "openai"
-                tools = self.get_tool_schemas(format_type=format_type)
+                # For MLX provider, pass the actual function objects
+                if isinstance(self.provider, MLXProvider):
+                    tools = list(self.tools.values())
+                    logger.info(f"Using raw function objects for MLX provider: {[t.__name__ for t in tools]}")
+                else:
+                    # For other providers, convert to appropriate schema format
+                    format_type = "anthropic" if isinstance(self.provider, AnthropicProvider) else "openai"
+                    tools = self.get_tool_schemas(format_type=format_type)
             
             # Convert response_format to appropriate JSON schema if provided
             generation_kwargs = {}
