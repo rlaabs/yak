@@ -840,11 +840,9 @@ wheels = [
 
 [[package]]
 name = "sentencepiece"
-version = "0.2.1"
-source = { path = "../../Downloads/sentencepiece/sentencepiece-0.2.1-cp313-cp313-macosx_11_0_arm64.whl" }
-wheels = [
-    { filename = "sentencepiece-0.2.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:01aea4e10ee3666e1cfa7aa228f4d47fed3b7d9b3458a3d28ea71128e79b651c" },
-]
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c9/d2/b9c7ca067c26d8ff085d252c89b5f69609ca93fb85a00ede95f4857865d4/sentencepiece-0.2.0.tar.gz", hash = "sha256:a52c19171daaf2e697dc6cbe67684e0fa341b1248966f6aebb541de654d15843", size = 2632106, upload-time = "2024-02-19T17:06:47.428Z" }
 
 [[package]]
 name = "six"
@@ -1027,7 +1025,6 @@ dependencies = [
     { name = "ipywidgets" },
     { name = "mlx-lm" },
     { name = "openai" },
-    { name = "sentencepiece" },
 ]
 
 [package.metadata]
@@ -1036,5 +1033,4 @@ requires-dist = [
     { name = "ipywidgets", specifier = ">=8.1.7" },
     { name = "mlx-lm", specifier = ">=0.24.1" },
     { name = "openai", specifier = ">=1.82.1" },
-    { name = "sentencepiece", path = "../../Downloads/sentencepiece/sentencepiece-0.2.1-cp313-cp313-macosx_11_0_arm64.whl" },
 ]
