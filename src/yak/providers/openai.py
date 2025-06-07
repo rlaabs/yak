@@ -22,7 +22,7 @@ except ImportError:
 class OpenAIProvider(LLMProvider):
     """OpenAI API provider."""
     
-    def __init__(self, model_name: str = "gpt-4", api_key: Optional[str] = None, **kwargs):
+    def __init__(self, model_name: str = "gpt-4", api_key: Optional[str] = None, base_url: Optional[str] = None, **kwargs):
         if not HAS_OPENAI:
             raise ImportError("OpenAI package not installed. Run: pip install openai")
         
@@ -31,8 +31,13 @@ class OpenAIProvider(LLMProvider):
         # Handle API key with environment variable fallback
         self.api_key = self._get_api_key(api_key)
         
-        self.client = AsyncOpenAI(api_key=self.api_key)
-        self.sync_client = OpenAI(api_key=self.api_key)
+        # Initialize clients with optional base_url
+        client_kwargs = {"api_key": self.api_key}
+        if base_url:
+            client_kwargs["base_url"] = base_url
+            
+        self.client = AsyncOpenAI(**client_kwargs)
+        self.sync_client = OpenAI(**client_kwargs)
         self.generation_kwargs = kwargs
     
     def _get_api_key(self, provided_key: Optional[str]) -> Optional[str]:
