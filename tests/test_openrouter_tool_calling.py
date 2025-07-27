@@ -1,7 +1,7 @@
 import os
 import asyncio
 import pytest
-from src.yak import Yak
+from yak import Yak
 
 # Sample tool function
 def calculator(operation: str, a: float, b: float) -> float:

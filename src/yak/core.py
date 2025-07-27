@@ -277,24 +277,26 @@ class Yak:
             tools = None
             if self.tools:
                 # For MLX provider, pass the actual function objects
-                if isinstance(self.provider, MLXProvider):
+                provider_class_name = self.provider.__class__.__name__
+                if provider_class_name == "MLXProvider":
                     tools = list(self.tools.values())
                     logger.info(f"Using raw function objects for MLX provider: {[t.__name__ for t in tools]}")
                 else:
                     # For other providers, convert to appropriate schema format
-                    format_type = "anthropic" if isinstance(self.provider, AnthropicProvider) else "openai"
+                    format_type = "anthropic" if provider_class_name == "AnthropicProvider" else "openai"
                     tools = self.get_tool_schemas(format_type=format_type)
             
             # Convert response_format to appropriate JSON schema if provided
             generation_kwargs = {}
             if response_format:
                 try:
-                    if isinstance(self.provider, OpenAIProvider):
+                    provider_class_name = self.provider.__class__.__name__
+                    if provider_class_name == "OpenAIProvider":
                         # OpenAI only supports {"type": "json_object"}
                         response_format_schema = pydantic_model_to_json_schema(response_format, provider_type="openai")
                         generation_kwargs["response_format"] = response_format_schema
                         logger.info(f"Using response format schema for OpenAI: {response_format_schema}")
-                    elif isinstance(self.provider, OpenRouterProvider):
+                    elif provider_class_name == "OpenRouterProvider":
                         # OpenRouter supports full JSON schema
                         response_format_schema = pydantic_model_to_json_schema(response_format, provider_type="openrouter")
                         generation_kwargs["response_format"] = response_format_schema
@@ -396,24 +398,26 @@ class Yak:
             tools = None
             if self.tools:
                 # For MLX provider, pass the actual function objects
-                if isinstance(self.provider, MLXProvider):
+                provider_class_name = self.provider.__class__.__name__
+                if provider_class_name == "MLXProvider":
                     tools = list(self.tools.values())
                     logger.info(f"Using raw function objects for MLX provider: {[t.__name__ for t in tools]}")
                 else:
                     # For other providers, convert to appropriate schema format
-                    format_type = "anthropic" if isinstance(self.provider, AnthropicProvider) else "openai"
+                    format_type = "anthropic" if provider_class_name == "AnthropicProvider" else "openai"
                     tools = self.get_tool_schemas(format_type=format_type)
             
             # Convert response_format to appropriate JSON schema if provided
             generation_kwargs = {}
             if response_format:
                 try:
-                    if isinstance(self.provider, OpenAIProvider):
+                    provider_class_name = self.provider.__class__.__name__
+                    if provider_class_name == "OpenAIProvider":
                         # OpenAI only supports {"type": "json_object"}
                         response_format_schema = pydantic_model_to_json_schema(response_format, provider_type="openai")
                         generation_kwargs["response_format"] = response_format_schema
                         logger.info(f"Using response format schema for OpenAI: {response_format_schema}")
-                    elif isinstance(self.provider, OpenRouterProvider):
+                    elif provider_class_name == "OpenRouterProvider":
                         # OpenRouter supports full JSON schema
                         response_format_schema = pydantic_model_to_json_schema(response_format, provider_type="openrouter")
                         generation_kwargs["response_format"] = response_format_schema
