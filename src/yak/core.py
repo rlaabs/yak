@@ -146,15 +146,23 @@ class Yak:
     
     def generate_tool_schema(self, func, name: str = None, format_type: str = "openai") -> Dict[str, Any]:
         """
-        Generate JSON schema for LLM tool use from a function's type hints and docstring.
+        Generate JSON schema for LLM tool use from any function's type hints and docstring.
+        
+        This method can generate a schema for any callable function, regardless of whether
+        it's registered as a tool with this Yak instance. For getting schemas of all
+        registered tools at once, use get_tool_schemas() instead.
         
         Args:
-            func: The function to generate schema for
+            func: The function to generate schema for (can be any callable)
             name: Optional name override (defaults to function name)
             format_type: Schema format - "openai", "anthropic", or "standard"
         
         Returns:
             JSON schema dictionary for LLM tool use
+            
+        See Also:
+            get_tool_schemas(): Get schemas for all registered tools
+            add_tool(): Register a function as a tool with this instance
         """
         tool_name = name or func.__name__
         signature = inspect.signature(func)
@@ -244,7 +252,23 @@ class Yak:
             self.llm_history = []
     
     def get_tool_schemas(self, format_type: str = "openai") -> List[Dict[str, Any]]:
-        """Get schemas for all registered tools."""
+        """
+        Get JSON schemas for all tools currently registered with this Yak instance.
+        
+        This method generates schemas for all tools that have been added via the constructor
+        or the add_tool() method. For generating schemas for individual functions that
+        aren't registered as tools, use generate_tool_schema() instead.
+        
+        Args:
+            format_type: Schema format - "openai", "anthropic", or "standard"
+        
+        Returns:
+            List of JSON schema dictionaries, one for each registered tool
+            
+        See Also:
+            generate_tool_schema(): Generate schema for a single function
+            add_tool(): Add a tool to this instance
+        """
         schemas = []
         for tool in self.tools.values():
             schema = self.generate_tool_schema(tool, format_type=format_type)
